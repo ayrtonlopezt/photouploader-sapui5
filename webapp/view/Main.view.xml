@@ -1,0 +1,80 @@
+<mvc:View
+    controllerName="zalopez.onlyfortesting.controller.Main"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:custom="zalopez.onlyfortesting.controls"
+>
+    <Page
+        id="p"
+        title="{i18n>title}"
+    >
+        <List
+            id="l"
+            items="{localModel>/aPhoto}"
+            itemPress=".onViewPhoto"
+            mode="Delete"
+            delete=".onDeleteListItem"
+            growing="true"
+            growingScrollToLoad="true"
+            width="100%"
+        >
+            <headerToolbar>
+                <OverflowToolbar id="ot">
+                    <Title
+                        id="t"
+                        text="Fotos"
+                        level="H2"
+                    />
+                    <ToolbarSpacer id="ts" />
+
+                    <custom:PhotoUploader
+                        id="pu"
+                        fileNamePrefix="FOTO"
+                        change="onPhotoChangeMaterial"
+                    />
+                </OverflowToolbar>
+            </headerToolbar>
+
+            <items>
+                <CustomListItem
+                    id="cli"
+                    type="Active"
+                    class="sapUiTinyMargin"
+                >
+                    <HBox
+                        id="hb"
+                        alignItems="Center"
+                        justifyContent="SpaceBetween"
+                        width="100%"
+                    >
+                        <VBox
+                            id="vb"
+                            width="4rem"
+                            height="4rem"
+                            alignItems="Center"
+                            justifyContent="Center"
+                            class="photoThumbBox"
+                        >
+                            <Image
+                                id="img"
+                                src="{localModel>dataURL}"
+                                width="100%"
+                                height="100%"
+                                densityAware="false"
+                                class="photoThumbImage"
+                            />
+                        </VBox>
+
+                        <VBox id="vb2">
+                            <Label
+                                id="lbl"
+                                text="{localModel>fileName}"
+                                wrapping="true"
+                            />
+                        </VBox>
+                    </HBox>
+                </CustomListItem>
+            </items>
+        </List>
+    </Page>
+</mvc:View>
