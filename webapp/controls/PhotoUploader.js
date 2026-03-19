@@ -20,8 +20,7 @@ sap.ui.define([
         // ======================================================
         metadata: {
             properties: {
-                maxPhotos: { type: "int", defaultValue: 5 }, // informativo (no se valida internamente)
-                enabled: { type: "boolean", defaultValue: true }, // controla si el usuario puede interactuar
+                enabled: { type: "boolean", defaultValue: true },
                 fileNamePrefix: { type: "string", defaultValue: "photo" },
                 onlyIcon: { type: "boolean", defaultValue: false },
                 buttonText: { type: "string", defaultValue: "Tomar Foto" }
@@ -29,7 +28,7 @@ sap.ui.define([
             events: {
                 /**
                  * Evento que se dispara al capturar una foto.
-                 * Retorna un objeto con:
+                 * Retorna un objeto con la imagen en base64 y el nombre generado.
                  * - dataURL: imagen en base64
                  * - fileName: nombre generado
                  */
@@ -49,19 +48,21 @@ sap.ui.define([
         // ======================================================
 
         /**
-         * Inicializa el control y construye la UI base.
+         * Inicializa el control y construye su estructura visual.
          */
         init() {
             this._buildUI();
         },
 
         /**
-         * Limpia recursos al destruir el control.
-         * Es importante para evitar fugas de memoria (cámara activa).
+         * Libera recursos al destruir el control.
+         * Es importante para evitar dejar la cámara activa o diálogos en memoria.
          */
         exit() {
             if (this._videoStream) {
-                this._videoStream.getTracks().forEach(t => t.stop());
+                this._videoStream.getTracks().forEach(function (oTrack) {
+                    oTrack.stop();
+                });
                 this._videoStream = null;
             }
 
@@ -76,8 +77,8 @@ sap.ui.define([
         // ======================================================
 
         /**
-         * Construye el botón principal del control.
-         * Este botón permite abrir la cámara.
+         * Construye la interfaz base del control.
+         * Actualmente consiste en un botón que permite abrir la cámara.
          */
         _buildUI() {
             this._oAddButton = new Button({
@@ -93,12 +94,11 @@ sap.ui.define([
             });
 
             this.setAggregation("_container", oVBox);
-
             this._updateAddButtonState();
         },
 
         /**
-         * Renderiza el contenido del control en el DOM.
+         * Renderiza el contenedor interno del control.
          */
         renderer(oRm, oControl) {
             oRm.openStart("div", oControl);
@@ -114,17 +114,19 @@ sap.ui.define([
         // ======================================================
 
         /**
-         * Actualiza el estado del botón (habilitado/deshabilitado).
+         * Actualiza el estado habilitado del botón según la propiedad enabled.
          */
         _updateAddButtonState() {
-            if (!this._oAddButton) return;
+            if (!this._oAddButton) {
+                return;
+            }
 
             this._oAddButton.setEnabled(this.getEnabled());
         },
 
         /**
-         * Setter para la propiedad enabled.
-         * Permite activar o desactivar el control dinámicamente.
+         * Setter de enabled.
+         * Permite activar o desactivar la interacción con el control.
          */
         setEnabled(bValue) {
             this.setProperty("enabled", bValue, true);
@@ -137,7 +139,7 @@ sap.ui.define([
         // ======================================================
 
         /**
-         * Define si el botón muestra solo el ícono o ícono + texto.
+         * Define si el botón muestra solo ícono o ícono con texto.
          */
         setOnlyIcon(bValue) {
             this.setProperty("onlyIcon", bValue, true);
@@ -151,8 +153,8 @@ sap.ui.define([
         },
 
         /**
-         * Permite definir el texto del botón.
-         * Si se envía vacío, se usa el valor por defecto.
+         * Define el texto del botón.
+         * Si el valor es vacío, se utiliza "Tomar Foto".
          */
         setButtonText(sValue) {
             const sFinal = sValue || "Tomar Foto";
@@ -173,10 +175,9 @@ sap.ui.define([
 
         /**
          * Abre el diálogo de cámara.
-         * Valida que el control esté habilitado.
+         * Si aún no existe, lo crea e inicializa su contenido.
          */
         _openCamera() {
-
             if (!this.getEnabled()) {
                 return;
             }
@@ -235,8 +236,8 @@ sap.ui.define([
         },
 
         /**
-         * Inicia la cámara del dispositivo.
-         * Incluye indicador de carga y manejo de errores.
+         * Inicia el stream de video del dispositivo.
+         * Muestra un indicador de carga y maneja posibles errores de permisos.
          */
         _startCamera() {
             BusyIndicator.show(0);
@@ -251,11 +252,11 @@ sap.ui.define([
 
                 navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" }
-                }).then(stream => {
+                }).then((stream) => {
                     this._videoStream = stream;
                     video.srcObject = stream;
                     BusyIndicator.hide();
-                }).catch(err => {
+                }).catch((err) => {
                     BusyIndicator.hide();
 
                     if (err.name === "NotAllowedError") {
@@ -272,11 +273,13 @@ sap.ui.define([
         },
 
         /**
-         * Detiene la cámara y cierra el diálogo.
+         * Detiene el stream de video y cierra el diálogo de cámara.
          */
         _closeCamera() {
             if (this._videoStream) {
-                this._videoStream.getTracks().forEach(t => t.stop());
+                this._videoStream.getTracks().forEach(function (oTrack) {
+                    oTrack.stop();
+                });
                 this._videoStream = null;
             }
 
@@ -290,8 +293,8 @@ sap.ui.define([
         // ======================================================
 
         /**
-         * Captura la imagen desde el video.
-         * La redimensiona y la convierte a base64 para optimizar peso.
+         * Captura el frame actual del video, lo redimensiona
+         * y lo convierte a base64 para su posterior procesamiento.
          */
         _capture() {
             const video = document.getElementById(this._sVideoId);
@@ -333,11 +336,10 @@ sap.ui.define([
 
         /**
          * Emite el evento change con la foto capturada.
-         * El controller es responsable de procesar o guardar la imagen.
+         * El controlador consumidor decide cómo almacenarla o procesarla.
          */
         _emitPhoto(oImage) {
             this.fireChange({ photo: oImage });
         }
-
     });
 });
