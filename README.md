@@ -4,6 +4,13 @@
 
 `PhotoUploader` es un control personalizado desarrollado en SAPUI5 que permite capturar fotografías directamente desde la cámara del dispositivo (móvil o desktop).
 
+Este repositorio incluye además una **aplicación de prueba** que demuestra el uso del control, permitiendo:
+
+- Tomar fotografías
+- Visualizarlas en una lista
+- Eliminar fotos
+- Ver la imagen en pantalla completa al seleccionarla
+
 El control sigue un enfoque **stateless**, delegando completamente la gestión de las imágenes al controlador que lo consume.
 
 ---
@@ -16,6 +23,19 @@ Facilitar la captura de imágenes en aplicaciones SAPUI5 de forma:
 - Desacoplada
 - Optimizada para dispositivos móviles
 - Fácil de integrar en cualquier vista
+
+---
+
+## 🧪 Aplicación de ejemplo incluida
+
+Este proyecto incluye una implementación funcional que permite:
+
+- 📷 Capturar fotos desde el dispositivo
+- 📋 Mostrar las fotos en una lista (`sap.m.List`)
+- ❌ Eliminar fotos de la lista
+- 🔍 Visualizar una foto en detalle (Dialog responsive)
+  
+Esto sirve como referencia para integrar el control en proyectos reales.
 
 ---
 
