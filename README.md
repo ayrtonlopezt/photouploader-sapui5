@@ -9,9 +9,9 @@ Este repositorio incluye además una **aplicación de prueba** que demuestra el 
 - Tomar fotografías
 - Visualizarlas en una lista
 - Eliminar fotos
-- Ver la imagen en pantalla completa al seleccionarla
+- Ver la imagen en pantalla completa
 
-El control sigue un enfoque **stateless**, delegando completamente la gestión de las imágenes al controlador que lo consume.
+El control sigue un enfoque **stateless**, delegando completamente la gestión de las imágenes al controlador.
 
 ---
 
@@ -22,59 +22,72 @@ Facilitar la captura de imágenes en aplicaciones SAPUI5 de forma:
 - Reutilizable
 - Desacoplada
 - Optimizada para dispositivos móviles
-- Fácil de integrar en cualquier vista
+- Fácil de integrar
 
 ---
 
-## 🧪 Aplicación de ejemplo incluida
+## 🧪 Aplicación de ejemplo
 
-Este proyecto incluye una implementación funcional que permite:
+Incluye una app funcional que permite:
 
-- 📷 Capturar fotos desde el dispositivo
-- 📋 Mostrar las fotos en una lista (`sap.m.List`)
-- ❌ Eliminar fotos de la lista
-- 🔍 Visualizar una foto en detalle (Dialog responsive)
-  
-Esto sirve como referencia para integrar el control en proyectos reales.
+- 📷 Capturar fotos  
+- 📋 Mostrar fotos en lista  
+- ❌ Eliminar fotos  
+- 🔍 Ver imagen en detalle  
 
 ---
 
 ## ⚙️ Características
 
-- Captura de imágenes usando la cámara del dispositivo
-- Compresión automática (máx. 1024px de ancho)
-- Generación de imágenes en base64 (`dataURL`)
-- Nombre de archivo automático
-- Diseño responsive (mobile-first)
-- Control desacoplado del modelo de datos
-- Manejo de permisos de cámara
-- Prevención de múltiples capturas simultáneas
+- Captura de imágenes desde cámara
+- Compresión automática (máx. 1024px)
+- Base64 (`dataURL`)
+- Nombre automático
+- Responsive (mobile-first)
+- Control stateless
+- Manejo de permisos
+- Prevención de múltiples capturas
+- 🔦 Soporte opcional de flash (torch)
 
 ---
 
-## 🧩 Uso básico
+## 🔦 Flash (Torch)
 
-### En la vista (XML)
+El control permite activar el flash del dispositivo cuando es soportado:
+
+- Implementado como `ToggleButton`
+- Se muestra solo si:
+  - `showTorchButton = true`
+  - el dispositivo soporta torch
+
+⚠️ Nota:
+- No funciona en todos los dispositivos
+- iOS generalmente no lo soporta
+- Desktop no tiene soporte
+
+---
+
+## 🧩 Uso
+
+### XML
 
 ```xml
 <custom:PhotoUploader
-    id="photoUploader"
     fileNamePrefix="FOTO"
+    showTorchButton="true"
     change="onPhotoChange"
 />
 ```
 
 ---
 
-### En el controller
+### Controller
 
 ```javascript
 onPhotoChange(oEvent) {
     const oPhoto = oEvent.getParameter("photo");
-    if (!oPhoto) return;
 
     let aPhotos = this.getModel("localModel").getProperty("/aPhoto") || [];
-
     aPhotos.push(oPhoto);
 
     this.getModel("localModel").setProperty("/aPhoto", aPhotos);
@@ -83,15 +96,13 @@ onPhotoChange(oEvent) {
 
 ---
 
-## 📦 Estructura del evento
-
-El evento `change` retorna:
+## 📦 Evento
 
 ```javascript
 {
   photo: {
-    dataURL: string,   // Imagen en base64
-    fileName: string   // Nombre generado automáticamente
+    dataURL: string,
+    fileName: string
   }
 }
 ```
@@ -102,43 +113,46 @@ El evento `change` retorna:
 
 | Propiedad        | Tipo     | Default        | Descripción |
 |-----------------|----------|---------------|------------|
-| enabled         | boolean  | true          | Habilita o deshabilita el control |
-| fileNamePrefix  | string   | "photo"       | Prefijo del nombre de archivo |
-| onlyIcon        | boolean  | false         | Muestra solo ícono |
+| enabled         | boolean  | true          | Activa o desactiva el control |
+| fileNamePrefix  | string   | "photo"       | Prefijo del nombre |
+| onlyIcon        | boolean  | false         | Solo ícono |
 | buttonText      | string   | "Tomar Foto"  | Texto del botón |
+| showTorchButton | boolean  | false         | Activa el flash |
 
 ---
 
 ## 🧠 Arquitectura
 
-El control es **stateless**, lo que implica:
+El control es stateless:
 
-- No almacena imágenes internamente
-- No gestiona listas de fotos
-- No valida límites de cantidad
+- No guarda fotos
+- No valida límites
+- No maneja estado de datos
 
-👉 Toda la lógica debe implementarse en el controller.
+👉 Todo lo maneja el controller
 
 ---
 
 ## ⚠️ Consideraciones
 
-- Requiere permisos de cámara (`getUserMedia`)
-- Puede fallar si el usuario deniega acceso
-- Las imágenes se almacenan en memoria como base64 (cuidado con grandes volúmenes)
+- Requiere permisos de cámara
+- Puede fallar si el usuario los deniega
+- Manejar memoria al usar base64
+- El flash no está garantizado
 
 ---
 
 ## 📱 Compatibilidad
 
 - SAPUI5 / Fiori
-- SAP Workzone
+- Workzone
 - Navegadores modernos
-- Dispositivos móviles (Android / iOS)
+- Android (mejor soporte)
+- iOS (limitado)
 
 ---
 
-## 🚀 Posibles mejoras futuras
+## 🚀 Futuro
 
 - Captura múltiple (batch)
-- Preview integrado
+- Preview interno

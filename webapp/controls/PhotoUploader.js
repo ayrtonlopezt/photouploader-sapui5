@@ -1,13 +1,14 @@
 sap.ui.define([
     "sap/ui/core/Control",
     "sap/m/Button",
+    "sap/m/ToggleButton",
     "sap/m/VBox",
     "sap/m/Dialog",
     "sap/ui/core/HTML",
     "sap/m/MessageToast",
     "sap/m/library",
     "sap/ui/core/BusyIndicator"
-], function (Control, Button, VBox, Dialog, HTML, MessageToast, mobileLibrary, BusyIndicator) {
+], function (Control, Button, ToggleButton, VBox, Dialog, HTML, MessageToast, mobileLibrary, BusyIndicator) {
     "use strict";
 
     const ButtonType = mobileLibrary.ButtonType;
@@ -16,22 +17,16 @@ sap.ui.define([
 
         // ======================================================
         // METADATA
-        // Define propiedades, eventos y agregaciones del control
         // ======================================================
         metadata: {
             properties: {
                 enabled: { type: "boolean", defaultValue: true },
                 fileNamePrefix: { type: "string", defaultValue: "photo" },
                 onlyIcon: { type: "boolean", defaultValue: false },
-                buttonText: { type: "string", defaultValue: "Tomar Foto" }
+                buttonText: { type: "string", defaultValue: "Tomar Foto" },
+                showTorchButton: { type: "boolean", defaultValue: false }
             },
             events: {
-                /**
-                 * Evento que se dispara al capturar una foto.
-                 * Retorna un objeto con la imagen en base64 y el nombre generado.
-                 * - dataURL: imagen en base64
-                 * - fileName: nombre generado
-                 */
                 change: {
                     parameters: {
                         photo: { type: "object" }
@@ -46,23 +41,15 @@ sap.ui.define([
         // ======================================================
         // CICLO DE VIDA
         // ======================================================
-
-        /**
-         * Inicializa el control y construye su estructura visual.
-         */
         init() {
+            this._bTorchEnabled = false;
+            this._bTorchSupported = false;
             this._buildUI();
         },
 
-        /**
-         * Libera recursos al destruir el control.
-         * Es importante para evitar dejar la cámara activa o diálogos en memoria.
-         */
         exit() {
             if (this._videoStream) {
-                this._videoStream.getTracks().forEach(function (oTrack) {
-                    oTrack.stop();
-                });
+                this._videoStream.getTracks().forEach(t => t.stop());
                 this._videoStream = null;
             }
 
@@ -73,13 +60,8 @@ sap.ui.define([
         },
 
         // ======================================================
-        // CONSTRUCCIÓN UI
+        // UI
         // ======================================================
-
-        /**
-         * Construye la interfaz base del control.
-         * Actualmente consiste en un botón que permite abrir la cámara.
-         */
         _buildUI() {
             this._oAddButton = new Button({
                 text: this.getOnlyIcon() ? "" : this.getButtonText(),
@@ -89,45 +71,29 @@ sap.ui.define([
                 press: this._openCamera.bind(this)
             });
 
-            const oVBox = new VBox({
+            this.setAggregation("_container", new VBox({
                 items: [this._oAddButton]
-            });
+            }));
 
-            this.setAggregation("_container", oVBox);
             this._updateAddButtonState();
         },
 
-        /**
-         * Renderiza el contenedor interno del control.
-         */
         renderer(oRm, oControl) {
             oRm.openStart("div", oControl);
             oRm.openEnd();
-
             oRm.renderControl(oControl.getAggregation("_container"));
-
             oRm.close("div");
         },
 
         // ======================================================
-        // ESTADO DEL CONTROL
+        // ESTADO
         // ======================================================
-
-        /**
-         * Actualiza el estado habilitado del botón según la propiedad enabled.
-         */
         _updateAddButtonState() {
-            if (!this._oAddButton) {
-                return;
+            if (this._oAddButton) {
+                this._oAddButton.setEnabled(this.getEnabled());
             }
-
-            this._oAddButton.setEnabled(this.getEnabled());
         },
 
-        /**
-         * Setter de enabled.
-         * Permite activar o desactivar la interacción con el control.
-         */
         setEnabled(bValue) {
             this.setProperty("enabled", bValue, true);
             this._updateAddButtonState();
@@ -137,10 +103,6 @@ sap.ui.define([
         // ======================================================
         // CONFIGURACIÓN VISUAL
         // ======================================================
-
-        /**
-         * Define si el botón muestra solo ícono o ícono con texto.
-         */
         setOnlyIcon(bValue) {
             this.setProperty("onlyIcon", bValue, true);
 
@@ -152,10 +114,6 @@ sap.ui.define([
             return this;
         },
 
-        /**
-         * Define el texto del botón.
-         * Si el valor es vacío, se utiliza "Tomar Foto".
-         */
         setButtonText(sValue) {
             const sFinal = sValue || "Tomar Foto";
 
@@ -170,20 +128,59 @@ sap.ui.define([
         },
 
         // ======================================================
-        // MANEJO DE CÁMARA
+        // CÁMARA
         // ======================================================
-
-        /**
-         * Abre el diálogo de cámara.
-         * Si aún no existe, lo crea e inicializa su contenido.
-         */
         _openCamera() {
-            if (!this.getEnabled()) {
-                return;
-            }
+            if (!this.getEnabled()) return;
 
             if (!this._cameraDialog) {
+
                 this._sVideoId = this.getId() + "-cameraVideo";
+
+                const aButtons = [];
+
+                // 🔦 Flash (Toggle)
+                this._oTorchButton = new ToggleButton({
+                    text: "Flash",
+                    icon: "sap-icon://lightbulb",
+                    visible: false,
+                    enabled: false,
+                    press: (oEvent) => this._toggleTorch(oEvent)
+                });
+
+                aButtons.push(this._oTorchButton);
+
+                // 📸 Capturar
+                this._oCaptureButton = new Button({
+                    text: "Capturar",
+                    type: ButtonType.Emphasized,
+                    icon: "sap-icon://add-photo",
+                    press: (oEvent) => {
+                        const oBtn = oEvent.getSource();
+                        oBtn.setEnabled(false);
+
+                        try {
+                            const oImage = this._capture();
+                            if (oImage) {
+                                this._emitPhoto(oImage);
+                            }
+                        } finally {
+                            this._closeCamera();
+                            oBtn.setEnabled(true);
+                        }
+                    }
+                });
+
+                aButtons.push(this._oCaptureButton);
+
+                // ❌ Cerrar
+                this._oCloseButton = new Button({
+                    text: "Cerrar",
+                    icon: "sap-icon://decline",
+                    press: () => this._closeCamera()
+                });
+
+                aButtons.push(this._oCloseButton);
 
                 this._cameraDialog = new Dialog({
                     title: "Cámara",
@@ -202,30 +199,7 @@ sap.ui.define([
                             `
                         })
                     ],
-                    beginButton: new Button({
-                        text: "Capturar foto",
-                        type: ButtonType.Emphasized,
-                        icon: "sap-icon://add-photo",
-                        press: (oEvent) => {
-                            const oBtn = oEvent.getSource();
-                            oBtn.setEnabled(false);
-
-                            try {
-                                const oImage = this._capture();
-                                if (oImage) {
-                                    this._emitPhoto(oImage);
-                                }
-                            } finally {
-                                this._closeCamera();
-                                oBtn.setEnabled(true);
-                            }
-                        }
-                    }),
-                    endButton: new Button({
-                        text: "Cerrar",
-                        icon: "sap-icon://decline",
-                        press: () => this._closeCamera()
-                    }),
+                    buttons: aButtons,
                     afterOpen: () => this._startCamera()
                 });
 
@@ -235,10 +209,6 @@ sap.ui.define([
             this._cameraDialog.open();
         },
 
-        /**
-         * Inicia el stream de video del dispositivo.
-         * Muestra un indicador de carga y maneja posibles errores de permisos.
-         */
         _startCamera() {
             BusyIndicator.show(0);
 
@@ -252,19 +222,14 @@ sap.ui.define([
 
                 navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" }
-                }).then((stream) => {
+                }).then(stream => {
                     this._videoStream = stream;
                     video.srcObject = stream;
+                    this._evaluateTorchSupport();
                     BusyIndicator.hide();
-                }).catch((err) => {
+                }).catch(err => {
                     BusyIndicator.hide();
-
-                    if (err.name === "NotAllowedError") {
-                        MessageToast.show("Permiso de cámara denegado");
-                    } else {
-                        MessageToast.show("No se pudo acceder a la cámara");
-                    }
-
+                    MessageToast.show("No se pudo acceder a la cámara");
                     console.error(err);
                 });
             };
@@ -272,15 +237,25 @@ sap.ui.define([
             tryStart();
         },
 
-        /**
-         * Detiene el stream de video y cierra el diálogo de cámara.
-         */
         _closeCamera() {
             if (this._videoStream) {
-                this._videoStream.getTracks().forEach(function (oTrack) {
-                    oTrack.stop();
-                });
+
+                try {
+                    const track = this._videoStream.getVideoTracks()[0];
+                    if (track && this._bTorchEnabled) {
+                        track.applyConstraints({ advanced: [{ torch: false }] });
+                    }
+                } catch (e) { }
+
+                this._videoStream.getTracks().forEach(t => t.stop());
                 this._videoStream = null;
+            }
+
+            this._bTorchEnabled = false;
+
+            if (this._oTorchButton) {
+                this._oTorchButton.setPressed(false);
+                this._oTorchButton.setVisible(false);
             }
 
             if (this._cameraDialog) {
@@ -289,55 +264,86 @@ sap.ui.define([
         },
 
         // ======================================================
-        // CAPTURA DE IMAGEN
+        // TORCH
         // ======================================================
+        _evaluateTorchSupport() {
+            if (!this._oTorchButton || !this.getShowTorchButton()) return;
 
-        /**
-         * Captura el frame actual del video, lo redimensiona
-         * y lo convierte a base64 para su posterior procesamiento.
-         */
+            try {
+                const track = this._videoStream.getVideoTracks()[0];
+
+                if (!track || !track.getCapabilities) {
+                    this._oTorchButton.setVisible(false);
+                    return;
+                }
+
+                const capabilities = track.getCapabilities();
+                const bSupported = !!capabilities.torch;
+
+                this._bTorchSupported = bSupported;
+
+                this._oTorchButton.setVisible(bSupported);
+                this._oTorchButton.setEnabled(bSupported);
+
+            } catch (e) {
+                this._oTorchButton.setVisible(false);
+                console.error(e);
+            }
+        },
+
+        _toggleTorch(oEvent) {
+            try {
+                const track = this._videoStream.getVideoTracks()[0];
+                const bPressed = oEvent.getSource().getPressed();
+
+                if (!track || !track.getCapabilities || !track.getCapabilities().torch) {
+                    MessageToast.show("Flash no soportado");
+                    return;
+                }
+
+                track.applyConstraints({
+                    advanced: [{ torch: bPressed }]
+                });
+
+                this._bTorchEnabled = bPressed;
+
+            } catch (err) {
+                MessageToast.show("Error al controlar el flash");
+                console.error(err);
+            }
+        },
+
+        // ======================================================
+        // CAPTURA
+        // ======================================================
         _capture() {
             const video = document.getElementById(this._sVideoId);
 
-            if (!video || !video.videoWidth || !video.videoHeight) {
-                MessageToast.show("La cámara aún no está lista");
+            if (!video || !video.videoWidth) {
+                MessageToast.show("Cámara no lista");
                 return null;
             }
 
             const canvas = document.createElement("canvas");
 
-            const originalWidth = video.videoWidth;
-            const originalHeight = video.videoHeight;
-
             const MAX_WIDTH = 1024;
-            const targetWidth = Math.min(originalWidth, MAX_WIDTH);
-            const scale = targetWidth / originalWidth;
+            const scale = Math.min(video.videoWidth, MAX_WIDTH) / video.videoWidth;
 
-            canvas.width = targetWidth;
-            canvas.height = Math.round(originalHeight * scale);
+            canvas.width = video.videoWidth * scale;
+            canvas.height = video.videoHeight * scale;
 
             const ctx = canvas.getContext("2d");
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            const QUALITY = 0.7;
-            const dataURL = canvas.toDataURL("image/jpeg", QUALITY);
-
-            const sPrefix = this.getFileNamePrefix() || "photo";
-
             return {
-                dataURL,
-                fileName: `${sPrefix}_${Date.now()}.jpg`
+                dataURL: canvas.toDataURL("image/jpeg", 0.7),
+                fileName: `${this.getFileNamePrefix()}_${Date.now()}.jpg`
             };
         },
 
         // ======================================================
-        // EVENTOS
+        // EVENTO
         // ======================================================
-
-        /**
-         * Emite el evento change con la foto capturada.
-         * El controlador consumidor decide cómo almacenarla o procesarla.
-         */
         _emitPhoto(oImage) {
             this.fireChange({ photo: oImage });
         }
